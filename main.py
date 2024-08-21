@@ -3,6 +3,8 @@ import requests
 import groq
 import streamlit as st
 from dotenv import load_dotenv
+from streamlit import markdown
+
 from presets.personas import personas
 
 # Page layout
@@ -22,6 +24,8 @@ default_states = {
     "all_models": [],
     "personality": "General Chatbot",
     "temperature": 0.2,
+    "creative": False,
+    "markdown_output": False,
     "messages": [],
 }
 for key, value in default_states.items():
@@ -56,6 +60,11 @@ def fetch_models():
 
 def update_session_states():
     sys_prompt = personas[st.session_state.personality]
+    if not st.session_state.creative:
+        sys_prompt += """**I prioritize factual accuracy and will indicate when I am unsure about an answer, 
+        based on the data I have been trained on.**
+        If I don't know the answer, I will respond with '_I am sorry, I don't know the answer._'
+        """
     if len(st.session_state.messages) > 0:
         st.session_state.messages[0]["content"] = sys_prompt
     else:
@@ -95,6 +104,8 @@ def main():
                                                             index=index)
             st.selectbox("Select Personality", list(personas.keys()), key="personality")
             st.slider("Temperature", 0.0, 2.0, step=0.1, key="temperature")
+            st.toggle("Creative Mode", key="creative")
+            st.toggle("Markdown Output", key="markdown_output")
             # Clear chat history button
             if st.button("Start a new conversation", type="primary"):
                 st.session_state.messages = []
@@ -128,6 +139,8 @@ def main():
                 {"role": "user", "content": prompt}
             )
             st.chat_message("user").write(prompt)
+            # Initialize an empty string to collect the full response
+            full_response = ""
             completion = client.chat.completions.create(
                 model=st.session_state.preferred_model,
                 temperature=st.session_state.temperature,
@@ -137,9 +150,20 @@ def main():
             )
             # Stream completion to the browser
             with st.chat_message("assistant"):
-                response = st.write_stream(stream_response(completion))
+                response_container = st.empty()
+                for chunk in stream_response(completion):
+                    full_response += chunk  # Collect the full response
+                    response_container.write(full_response)
+                # response = st.write_stream(stream_response(completion))
+                # for chunk in stream_response(completion):
+                #     full_response += chunk  # Collect the full response
             # Add finale response to the chat history
-            st.session_state.messages.append({"role": "assistant", "content": response})
+            # st.session_state.messages.append({"role": "assistant", "content": response})
+            st.session_state.messages.append({"role": "assistant", "content": full_response})
+            # Display full response in Markdown if desired
+            if st.session_state.markdown_output:
+                with st.expander("Markdown Output", icon="📝"):
+                    st.code(full_response, language="markdown")
 
 
 if __name__ == "__main__":

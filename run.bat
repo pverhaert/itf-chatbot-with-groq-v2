@@ -9,7 +9,5 @@ echo To stop the Streamlit application, press Ctrl+C in this window.
 REM Run the Streamlit application
 streamlit run main.py
 
-echo To stop the Streamlit application, press Ctrl+C in this window.
-
 REM Pause the command prompt to see any output or errors
 pause
